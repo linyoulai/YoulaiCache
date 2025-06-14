@@ -55,7 +55,7 @@ public:
 		Node* newNode = new Node(key, value); // 想想为什么是先插入再删除？因为反过来要加特殊判断，capacity为0的情况
 		insertNode(newNode);
 
-		if (size >= capacity) {
+		if (size > capacity) {
 			removeNode(tail->prev); // Remove the least recently used node (tail's previous node)
 		}
 	}
