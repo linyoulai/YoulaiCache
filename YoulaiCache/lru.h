@@ -58,6 +58,7 @@ public:
 		if (size > capacity) {
 			removeNode(tail->prev); // Remove the least recently used node (tail's previous node)
 		}
+
 	}
 
 private:
