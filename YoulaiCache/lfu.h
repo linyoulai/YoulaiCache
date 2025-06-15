@@ -36,6 +36,14 @@ public:
 		head->next = tail;
 		tail->prev = head;
 	}
+	~FreqList() {
+		Node* cur = head;
+		while (cur) {
+			Node* nxt = cur->next;
+			delete cur;
+			cur = nxt;
+		}
+	}
 
 	bool isEmpty() {
 		return head->next == tail;
@@ -64,6 +72,18 @@ private:
 	std::unordered_map<int, FreqList*> freq_map; // freq to list
 public:
 	LFUCache(int capacity) : capacity(capacity), min_freq(1) {}
+	~LFUCache() {
+		for (auto& pair : key_map) {
+			delete pair.second; // Delete all nodes
+		}
+		for (auto& pair : freq_map) {
+			delete pair.second; // Delete all frequency lists
+		}
+		key_map.clear();
+		freq_map.clear();
+		min_freq = 1;
+
+	}
 
 	int get(int key) {
 		if (key_map.find(key) == key_map.end()) {
@@ -75,6 +95,7 @@ public:
 		node->freq++;
 		moveNode(node);
 		if (freq_list->isEmpty()) {
+			delete freq_list; // Remove the old frequency list if it's empty
 			freq_map.erase(old_freq);
 			if (min_freq == old_freq) {
 				min_freq++;
@@ -91,9 +112,13 @@ public:
 			node->freq++;
 			moveNode(node);
 			if (freq_map[old_freq]->isEmpty()) {
+				delete freq_map[old_freq]; // Remove the old frequency list if it's empty
 				freq_map.erase(old_freq);
-				min_freq++;
+				if (min_freq == old_freq) {
+					min_freq++;
+				}
 			}
+			return;
 		}
 		Node* new_node = new Node(key, value);
 		key_map[key] = new_node;
