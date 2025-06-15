@@ -42,15 +42,83 @@ public:
 	}
 
 	void insertNode(Node* node) {
-
+		node->prev = head;
+		node->next = head->next;
+		head->next->prev = node;
+		head->next = node;
 	}
 
 	void removeNode(Node* node) {
-
+		node->next->prev = node->prev;
+		node->prev->next = node->next;
+		node->prev = nullptr;
+		node->next = nullptr;
 	}
 };
 
 class LFUCache {
+private:
+	int capacity;
+	int min_freq;
+	std::unordered_map<int, Node*> key_map; // key to node
+	std::unordered_map<int, FreqList*> freq_map; // freq to list
 public:
-	int capacity
+	LFUCache(int capacity) : capacity(capacity), min_freq(1) {}
+
+	int get(int key) {
+		if (key_map.find(key) == key_map.end()) {
+			return -1;
+		}
+		Node* node = key_map[key];
+		int old_freq = node->freq;
+		FreqList* freq_list = freq_map[node->freq];
+		node->freq++;
+		moveNode(node);
+		if (freq_list->isEmpty()) {
+			freq_map.erase(old_freq);
+			if (min_freq == old_freq) {
+				min_freq++;
+			}
+		}
+		return node->value;
+	}
+
+	void put(int key, int value) {
+		if (key_map.find(key) != key_map.end()) {
+			Node* node = key_map[key];
+			int old_freq = node->freq;
+			node->value = value;
+			node->freq++;
+			moveNode(node);
+			if (freq_map[old_freq]->isEmpty()) {
+				freq_map.erase(old_freq);
+				min_freq++;
+			}
+		}
+		Node* new_node = new Node(key, value);
+		key_map[key] = new_node;
+		if (freq_map.find(1) == freq_map.end()) {
+			freq_map[1] = new FreqList();
+		}
+		freq_map[1]->insertNode(new_node);
+		if (key_map.size() > capacity) {
+			Node* old_node = freq_map[min_freq]->tail->prev; // Get the last node in the min_freq list
+			freq_map[min_freq]->removeNode(old_node);
+			key_map.erase(old_node->key); // Remove from key_map
+			delete old_node; // Free memory
+			if (freq_map[min_freq]->isEmpty()) {
+				freq_map.erase(min_freq);
+			}
+		}
+		min_freq = 1;
+	}
+private:
+	void moveNode(Node* node) {
+		int old_freq = node->freq - 1;
+		freq_map[old_freq]->removeNode(node);
+		if (freq_map.find(node->freq) == freq_map.end()) {
+			freq_map[node->freq] = new FreqList();
+		}
+		freq_map[node->freq]->insertNode(node);
+	}
 };
