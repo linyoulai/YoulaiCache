@@ -1,6 +1,14 @@
 #include <iostream>
 #include <unordered_map>
 
+/*
+设置节点类，包含key、value
+
+设置一个双向链表，用于淘汰
+
+设置一个哈希表<键，节点指针>，用于判断是否存在和快速定位
+*/
+
 class Node {
 public:
 	int key;
@@ -13,13 +21,12 @@ public:
 class LRUCache {
 private:
 	int capacity;
-	int size;
 	Node* head;
 	Node* tail;
 	std::unordered_map<int, Node*> cache;
 
 public:
-	LRUCache(int capacity) : capacity(capacity), size(0) {
+	LRUCache(int capacity) : capacity(capacity) {
 		head = new Node(0, 0); // Dummy head
 		tail = new Node(0, 0); // Dummy tail
 		head->next = tail;
@@ -55,10 +62,9 @@ public:
 		Node* newNode = new Node(key, value); // 想想为什么是先插入再删除？因为反过来要加特殊判断，capacity为0的情况
 		insertNode(newNode);
 
-		if (size > capacity) {
+		if (cache.size() > capacity) {
 			removeNode(tail->prev); // Remove the least recently used node (tail's previous node)
 		}
-
 	}
 
 private:
@@ -81,7 +87,6 @@ private:
 	void removeNode(Node* node) {
 		node->prev->next = node->next;
 		node->next->prev = node->prev;
-		size--;
 		cache.erase(node->key);
 		delete node; 
 	}
@@ -91,7 +96,6 @@ private:
 		node->prev = head;
 		head->next->prev = node;
 		head->next = node;
-		size++;
 		cache[node->key] = node;
 	}
 };
