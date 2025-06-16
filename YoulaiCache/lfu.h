@@ -14,6 +14,8 @@ LFU
 */
 #include <unordered_map>
 
+namespace lfu {
+
 
 class Node {
 public:
@@ -37,12 +39,8 @@ public:
 		tail->prev = head;
 	}
 	~FreqList() {
-		Node* cur = head;
-		while (cur) {
-			Node* nxt = cur->next;
-			delete cur;
-			cur = nxt;
-		}
+		delete head;
+		delete tail;
 	}
 
 	bool isEmpty() {
@@ -71,7 +69,7 @@ private:
 	std::unordered_map<int, Node*> key_map; // key to node
 	std::unordered_map<int, FreqList*> freq_map; // freq to list
 public:
-	LFUCache(int capacity) : capacity(capacity), min_freq(1) {}
+	LFUCache(int capacity) : capacity(capacity), min_freq(0) {}
 	~LFUCache() {
 		for (auto& pair : key_map) {
 			delete pair.second; // Delete all nodes
@@ -81,8 +79,6 @@ public:
 		}
 		key_map.clear();
 		freq_map.clear();
-		min_freq = 1;
-
 	}
 
 	int get(int key) {
@@ -95,8 +91,8 @@ public:
 		node->freq++;
 		moveNode(node);
 		if (freq_list->isEmpty()) {
-			delete freq_list; // Remove the old frequency list if it's empty
 			freq_map.erase(old_freq);
+			delete freq_list; // Remove the old frequency list if it's empty
 			if (min_freq == old_freq) {
 				min_freq++;
 			}
@@ -112,13 +108,17 @@ public:
 			node->freq++;
 			moveNode(node);
 			if (freq_map[old_freq]->isEmpty()) {
-				delete freq_map[old_freq]; // Remove the old frequency list if it's empty
+				FreqList* freq_list = freq_map[old_freq];
 				freq_map.erase(old_freq);
+				delete freq_list; // Remove the old frequency list if it's empty
 				if (min_freq == old_freq) {
 					min_freq++;
 				}
 			}
 			return;
+		}
+		if (min_freq == 0) {
+			min_freq = 1;
 		}
 		Node* new_node = new Node(key, value);
 		key_map[key] = new_node;
@@ -132,7 +132,9 @@ public:
 			key_map.erase(old_node->key); // Remove from key_map
 			delete old_node; // Free memory
 			if (freq_map[min_freq]->isEmpty()) {
+				FreqList* freq_list = freq_map[min_freq];
 				freq_map.erase(min_freq);
+				delete freq_list; // Remove the old frequency list if it's empty
 			}
 		}
 		min_freq = 1;
@@ -147,3 +149,5 @@ private:
 		freq_map[node->freq]->insertNode(node);
 	}
 };
+
+}
