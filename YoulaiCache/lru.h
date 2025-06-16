@@ -8,8 +8,6 @@
 
 设置一个哈希表<键，节点指针>，用于判断是否存在和快速定位
 */
-namespace lru {
-
 
 class Node {
 public:
@@ -28,8 +26,7 @@ private:
 	std::unordered_map<int, Node*> cache;
 
 public:
-	LRUCache(int capacity) {
-		this->capacity = capacity >= 0 ? capacity : 0; // 确保容量非负
+	LRUCache(int capacity) : capacity(capacity) {
 		head = new Node(0, 0); // Dummy head
 		tail = new Node(0, 0); // Dummy tail
 		head->next = tail;
@@ -103,4 +100,3 @@ private:
 	}
 };
 
-}
