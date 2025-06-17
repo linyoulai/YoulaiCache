@@ -94,9 +94,10 @@ public:
 		auto it = keyMap.find(key);
 		if (it != keyMap.end())
 		{
-			removeNode(it->second);
-			keyMap.erase(it);
-			delete it->second;
+			LRUNode<Key, Value>* node = it->second;
+			removeNode(node);
+			keyMap.erase(it->first);
+			delete node;
 		}
 	}
 private:
