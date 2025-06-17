@@ -1,106 +1,155 @@
 #include <iostream>
 #include <unordered_map>
+#include "CachePolicy.h"
 
-/*
-设置节点类，包含key、value
+namespace YoulaiCache {
 
-设置一个双向链表，用于淘汰
+template<typename Key, typename Value>
+class LRUCache;
 
-设置一个哈希表<键，节点指针>，用于判断是否存在和快速定位
-*/
-namespace lru {
-
-
-class Node {
+template<typename Key, typename Value>
+class LRUNode {
+private:
+	Key key;
+	Value value;
+	size_t freq;
+	LRUNode* prev;
+	LRUNode* next;
 public:
-	int key;
-	int value;
-	Node* prev;
-	Node* next;
-	Node(int key, int value) : key(key), value(value), prev(nullptr), next(nullptr) {}
-};
+	LRUNode(const Key& key, const Value& value) {
+		this->key = key;
+		this->value = value;
+		this->freq = 1; // 初始频次为1
+	}
 
-class LRUCache {
+	Key getKey() const {
+		return key;
+	}
+
+	Value getValue() const {
+		return value;
+	}
+
+	void setValue(const Value& value) {
+		this->value = value;
+	}
+
+	size_t getFreq() const {
+		return freq;
+	}
+
+	void incrementFreq() {
+		++freq;
+	}
+
+	friend class LRUCache<Key, Value>;
+};
+template<typename Key, typename Value>
+class LRUCache : public CachePolicy<Key, Value> {
 private:
 	int capacity;
-	Node* head;
-	Node* tail;
-	std::unordered_map<int, Node*> cache;
-
+	LRUNode<Key, Value>* head;
+	LRUNode<Key, Value>* tail;
+	std::unordered_map<Key, LRUNode<Key, Value>*> keyMap;
 public:
-	LRUCache(int capacity) {
-		this->capacity = capacity >= 0 ? capacity : 0; // 确保容量非负
-		head = new Node(0, 0); // Dummy head
-		tail = new Node(0, 0); // Dummy tail
+	LRUCache(int capacity) : capacity(capacity) {
+		head = new LRUNode<Key, Value>(Key(), Value());
+		tail = new LRUNode<Key, Value>(Key(), Value());
 		head->next = tail;
 		tail->prev = head;
 	}
 
-	~LRUCache() {
-		Node* cur = head;
+	~LRUCache() override {
+		LRUNode<Key, Value>* cur = head;
 		while (cur) {
-			Node* nxt = cur->next;
+			LRUNode<Key, Value>* nxt = cur->next;
 			delete cur;
 			cur = nxt;
 		}
 	}
 
-	int get(int key) {
-		if (cache.find(key) == cache.end()) {
-			return -1; // Key not found
-		}
-		Node* node = cache[key];
-		// Move the accessed node to the front (most recently used)
-		moveToHead(node);
-		return node->value;
-	}
-
-	void put(int key, int value) {
-		if (cache.find(key) != cache.end()) {
-			cache[key]->value = value; // Update the value
-			moveToHead(cache[key]); // Move to head
+	void put(const Key& key, const Value& value) override {
+		if (capacity <= 0) {
 			return;
 		}
 
-		Node* newNode = new Node(key, value); // 想想为什么是先插入再删除？因为反过来要加特殊判断，capacity为0的情况
-		insertNode(newNode);
-
-		if (cache.size() > capacity) {
-			removeNode(tail->prev); // Remove the least recently used node (tail's previous node)
+		auto it = keyMap.find(key);
+		if (it != keyMap.end()) { // it 指向entry <key, node>
+			updateNode(it->second, value);
+			return;
 		}
+
+		// node不存在
+		addNode(key, value);
 	}
 
+	bool get(const Key& key, Value& value) override {
+		auto it = keyMap.find(key);
+		if (it != keyMap.end()) {
+			moveToHead(it->second);
+			value = it->second->getValue();
+			return true;
+		}
+		return false;
+	}
+
+	Value get(const Key& key) override {
+		Value value{};
+		get(key, value);
+		return value;
+	}
 private:
+	void updateNode(LRUNode<Key, Value>* node, const Value& value) {
+		node->setValue(value);
+		moveToHead(node);
+	}
 
-	void moveToHead(Node* node) {
-		if (node == head->next) {
+	void addNode(const Key& key, const Value& value) {
+		// assert capcity > 0
+		if (keyMap.size() >= capacity) {
+			evictNode();
+		}
+
+		LRUNode<Key, Value>* node = new LRUNode<Key, Value>(key, value);
+		insertNode(node);
+		keyMap[key] = node;
+	}
+	
+	void evictNode() {
+		LRUNode<Key, Value>* leastRecentNode = tail->prev;
+		removeNode(leastRecentNode);
+		keyMap.erase(leastRecentNode->getKey());
+		delete leastRecentNode;
+	}
+
+	void moveToHead(LRUNode<Key, Value>* node) {
+		if (node->prev == head) {
 			return;
 		}
-		// rmeove from linked list
-		node->prev->next = node->next;
-		node->next->prev = node->prev;
 
-		// insert to head
+		node->next->prev = node->prev;
+		node->prev->next = node->next;
+
 		node->next = head->next;
 		node->prev = head;
 		head->next->prev = node;
 		head->next = node;
 	}
-
-	void removeNode(Node* node) {
-		node->prev->next = node->next;
+	
+	void removeNode(LRUNode<Key, Value>* node) {
 		node->next->prev = node->prev;
-		cache.erase(node->key);
-		delete node; 
+		node->prev->next = node->next;
+		node->next = nullptr;
+		node->prev = nullptr;
 	}
 
-	void insertNode(Node* node) {
+	void insertNode(LRUNode<Key, Value>* node) {
 		node->next = head->next;
 		node->prev = head;
 		head->next->prev = node;
 		head->next = node;
-		cache[node->key] = node;
 	}
 };
 
-}
+};
+
