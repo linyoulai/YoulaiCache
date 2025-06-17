@@ -88,6 +88,17 @@ public:
 		get_nolock(key, value);
 		return value;
 	}
+
+	void remove(const Key& key) {
+		std::lock_guard<std::mutex> lock(mtx);
+		auto it = keyMap.find(key);
+		if (it != keyMap.end())
+		{
+			removeNode(it->second);
+			keyMap.erase(it);
+			delete it->second;
+		}
+	}
 private:
 
 	void put_nolock(const Key& key, const Value& value) {
@@ -165,6 +176,70 @@ private:
 		head->next->prev = node;
 		head->next = node;
 	}
+};
+
+// LRU优化：Lru-k版本。 通过继承的方式进行再优化
+template<typename Key, typename Value>
+class LRUKCache : public LRUCache<Key, Value> {
+private:
+	int k;
+	LRUCache<Key, size_t> slaveCache; // key-freq
+	std::unordered_map<Key, Value> slaveKeyMap; // key-value
+public:
+	LRUKCache(int capacity, int slaveCapacity, int k)
+		: LRUCache<Key, Value>(capacity) // 调用基类构造
+		, slaveCache(slaveCapacity)
+		, k(k)
+	{}
+
+	Value get(const Key& key) {
+		Value value{};
+		bool inMainCache = LRUCache<Key, Value>::get(key, value);
+
+		size_t freq = slaveCache.get(key);
+		slaveCache.put(key, ++freq);
+
+		if (inMainCache) {
+			return value;
+		}
+
+		if (freq >= k) {
+			auto it = slaveKeyMap.find(key);
+			if (it != slaveKeyMap.end()) {
+				Value storedValue = it->second;
+				slaveCache.remove(key);
+				slaveKeyMap.erase(it);
+
+				LRUCache<Key, Value>::put(key, storedValue);
+				
+				return storedValue;
+			}
+		}
+		
+		return value;
+	}
+
+	void put(const Key& key, const Value& value) {
+		Value oldValue{};
+		bool inMainCache = LRUCache<Key, Value>::get(key, oldValue);
+
+		if (inMainCache) {
+			LRUCache<Key, Value>::put(key, value);
+			return;
+		}
+
+		size_t freq = slaveCache.get(key);
+		slaveCache.put(key, ++freq);
+
+		slaveKeyMap[key] = value;
+
+		if (freq >= k) {
+			slaveCache.remove(key);
+			slaveKeyMap.erase(key);
+			LRUCache<Key, Value>::put(key, value);
+		}
+	}
+
 };
 
 };
