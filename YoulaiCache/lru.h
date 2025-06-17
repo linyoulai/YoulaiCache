@@ -1,5 +1,6 @@
 #include <iostream>
 #include <unordered_map>
+#include <mutex>
 #include "CachePolicy.h"
 
 namespace YoulaiCache {
@@ -51,6 +52,8 @@ private:
 	LRUNode<Key, Value>* head;
 	LRUNode<Key, Value>* tail;
 	std::unordered_map<Key, LRUNode<Key, Value>*> keyMap;
+
+	mutable std::mutex mtx;
 public:
 	LRUCache(int capacity) : capacity(capacity) {
 		head = new LRUNode<Key, Value>(Key(), Value());
@@ -60,6 +63,7 @@ public:
 	}
 
 	~LRUCache() override {
+		std::lock_guard<std::mutex> lock(mtx);
 		LRUNode<Key, Value>* cur = head;
 		while (cur) {
 			LRUNode<Key, Value>* nxt = cur->next;
@@ -69,6 +73,24 @@ public:
 	}
 
 	void put(const Key& key, const Value& value) override {
+		std::lock_guard<std::mutex> lock(mtx);
+		put_nolock(key, value);
+	}
+
+	bool get(const Key& key, Value& value) override {
+		std::lock_guard<std::mutex> lock(mtx);
+		return get_nolock(key, value);
+	}
+
+	Value get(const Key& key) override {
+		std::lock_guard<std::mutex> lock(mtx);
+		Value value{};
+		get_nolock(key, value);
+		return value;
+	}
+private:
+
+	void put_nolock(const Key& key, const Value& value) {
 		if (capacity <= 0) {
 			return;
 		}
@@ -83,7 +105,7 @@ public:
 		addNode(key, value);
 	}
 
-	bool get(const Key& key, Value& value) override {
+	bool get_nolock(const Key& key, Value& value) {
 		auto it = keyMap.find(key);
 		if (it != keyMap.end()) {
 			moveToHead(it->second);
@@ -93,12 +115,6 @@ public:
 		return false;
 	}
 
-	Value get(const Key& key) override {
-		Value value{};
-		get(key, value);
-		return value;
-	}
-private:
 	void updateNode(LRUNode<Key, Value>* node, const Value& value) {
 		node->setValue(value);
 		moveToHead(node);
